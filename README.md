@@ -74,4 +74,4 @@ CCase — это полноценная система кейсов для Minec
 - 🤑 Донат на [DonationAlerts](https://www.donationalerts.com/r/ziiwplay_) 
 
 ---
-[![Моя кнопка](https://img.shields.io/badge/Скачать-ZIP-yellow?style=for-the-badge)]()
+[![Моя кнопка](https://img.shields.io/badge/Скачать-ZIP-yellow?style=for-the-badge)](https://github.com/Snayneo/CCase/archive/refs/tags/1.0.0-BETA.zip)
