@@ -1,0 +1,193 @@
+# ──────────────────────────────────────────────────────────
+# Версия: Beta-1-0-0 | Типо-Плагин: CCase | Автор: Ziiw :)
+# ──────────────────────────────────────────────────────────
+
+command /CCase <text> <text>:
+    permission: ccase.admin
+    trigger:
+        set {_action} to arg-1
+        set {_name} to arg-2
+        set {_holoName} to "ccase-%{_name}%"
+
+        if {_action} is "create":
+            set {ccase::%{_name}%} to location of player
+            set block at location of player to end portal frame
+
+            # Голограмма — координаты
+            set {_loc} to location of player
+            set {_x} to x-coordinate of {_loc}
+            set {_y} to y-coordinate of {_loc} + 1.3
+            set {_z} to z-coordinate of {_loc}
+
+            # Голограмма создаётся от имени игрока
+            make player execute command "holo create %{_holoName}%"
+            make player execute command "holo move %{_holoName}% ~ ~+1.8 ~"
+            make player execute command "holo center %{_holoName}%"
+            make player execute command "holo lines set %{_holoName}% 1 1 &aКейс - %{_name}%"
+            make player execute command "holo lines add %{_holoName}% 1 &aНажми, &fчтобы открыть"
+            make player execute command "holo lines add %{_holoName}% 1 #ICON: DIAMOND_SWORD"
+
+            send "&6&lCCase ▶ &fКейс &6%{_name}% &aсоздан."
+
+        else if {_action} is "delete":
+            if {ccase::%{_name}%} is set:
+                set {_loc} to {ccase::%{_name}%}
+                delete {ccase::%{_name}%}
+                delete {ccase::items::%{_name}%::*}
+                set block at {_loc} to air
+
+                # Удаление голограммы
+                make player execute command "holo delete %{_holoName}%"
+
+                send "&6&lCCase ▶ &fКейс &6%{_name}%&c и голограмма удалены."
+            else:
+                send "&6&lCCase ▶ &fКейс &6%{_name}%&c не найден."
+
+        else:
+            send "&6&lCCase ▶ &cНеизвестная команда."
+
+command /ccadditem <text> <number>:
+    permission: ccase.admin
+    trigger:
+        set {_case} to arg-1
+        set {_index} to arg-2
+
+        if {ccase::%{_case}%} is not set:
+            send "&6&lCCase ▶ &fКейс &6%{_case}% &cне найден."
+            stop
+
+        if player's tool is air:
+            send "&6&lCCase ▶ &fВозьми &6предмет &fв руку, чтобы добавить его в &aкейс."
+            stop
+
+        set {ccase::items::%{_case}%::%{_index}%} to player's tool
+        send "&6&lCCase ▶ &fПредмет &aдобавлен &fв кейс &6%{_case}% &fпод номером &6%{_index}%"
+
+
+command /ccremoveitem <text> <number>:
+    permission: ccase.admin
+    trigger:
+        set {_case} to arg-1
+        set {_index} to arg-2
+
+        if {ccase::items::%{_case}%::%{_index}%} is not set:
+            send "&6&lCCase ▶ &cНет &fпредмета под номером &6%{_index}% &fв кейсе &6%{_case}%"
+            stop
+
+        delete {ccase::items::%{_case}%::%{_index}%}
+        send "&6&lCCase ▶ &cУдалён &fпредмет &6#%{_index}% &fиз кейса &6%{_case}%"
+
+on rightclick on end portal frame:
+    loop {ccase::*}:
+        set {_loc} to loop-value
+        if distance between {_loc} and location of clicked block < 1:
+            set {_name} to loop-index
+            set {_uuid} to uuid of player 
+
+            # Проверка: есть ли предметы в кейсе
+            if {ccase::items::%{_name}%::*} is not set:
+                send "&6&lCCase ▶ &fВ кейсе &6%{_name}% &cнет предметов!" to player
+                stop
+
+            # Проверка: игрок уже открывает кейс
+            if {ccase::opening::%{_uuid}%} is set:
+                send "&6&lCCase ▶ &fТы уже открываешь &6кейс!" to player
+                stop
+
+            # Проверка: этот кейс уже кто-то открывает
+            if {ccase::opening_case::%{_name}%} is set:
+                send "&6&lCCase ▶ &fКейс &6%{_name}% &cуже &fкто-то открывает!" to player
+                stop
+
+            # Проверка ключей (UUID игрока)
+            set {_uuid} to uuid of player
+            set {_keys} to {ccase::keys::%{_uuid}%::%{_name}%}
+            if {_keys} is not set:
+                send "&6&lCCase ▶ &fУ тебя &cнет &fключей для кейса &a%{_name}%&c!" to player
+                stop
+            if {_keys} <= 0:
+                send "&6&lCCase ▶ &fУ тебя &cнет &fключей для кейса &e%{_name}%&c!" to player
+                stop
+
+            remove 1 from {ccase::keys::%{_uuid}%::%{_name}%}
+            send "&6&lCCase ▶ &fВы &aоткрыли кейс &6%{_name}%!" to player
+            play sound "block.note_block.pling" to player
+
+            set {_holo} to "ccase-%{_name}%"
+
+            # Установка флагов занятости
+            set {ccase::opening::%{_uuid}%} to true
+            set {ccase::opening_case::%{_name}%} to true
+
+            # Задержка перед использованием
+            if {ccase::cooldown::%uuid of player%::%{_name}%} is set:
+                send "&aПодожди &fнемного перед повторным открытием кейса &6%{_name}%&f!" to player
+                stop
+
+            set {ccase::cooldown::%uuid of player%::%{_name}%} to true
+            wait 2 seconds
+            delete {ccase::cooldown::%uuid of player%::%{_name}%}
+
+            # Эффект вращения предметов
+            loop 10 times:
+                wait 10 ticks
+                set {_random} to random element out of {ccase::items::%{_name}%::*}
+                set {_material} to type of {_random}
+                set {_icon} to "%{_material}%"
+                replace all " " with "_" in {_icon}
+                replace all "[" with "" in {_icon}
+                replace all "]" with "" in {_icon}
+                replace all "," with "" in {_icon}
+                execute console command "holo lines set %{_holo}% 1 3 #ICON: %{_icon}%"
+                play sound "block.note_block.hat" to player
+
+            wait 10 ticks
+
+            # Получение награды
+            set {_reward} to random element out of {ccase::items::%{_name}%::*}
+            give {_reward} to player
+            delete {ccase::opening::%{_uuid}%}
+            delete {ccase::opening_case::%{_name}%}
+            set {_x} to x-coordinate of player
+            set {_y} to y-coordinate of player + 1
+            set {_z} to z-coordinate of player
+            execute console command "particle minecraft:firework %{_x}% %{_y}% %{_z}% 1 1 1 0.1 50 normal @a"
+
+            # Обновление иконки на голограмме
+            set {_finalMaterial} to type of {_reward}
+            set {_finalIcon} to "%{_finalMaterial}%"
+            replace all " " with "_" in {_finalIcon}
+            replace all "[" with "" in {_finalIcon}
+            replace all "]" with "" in {_finalIcon}
+            replace all "," with "" in {_finalIcon}
+            execute console command "holo lines set %{_holo}% 1 3 #ICON: %{_finalIcon}%"
+
+            play sound "entity.player.levelup" to player
+            send "&6&lCCase ▶ &fТы &aполучил &6%{_reward}% &fиз кейса &6%{_name}%!" to player
+            stop
+
+command /ccgivekey <player> <text> <number>:
+    permission: ccase.admin
+    permission message: &cНет прав!
+    trigger:
+        set {_target} to arg-1
+        set {_case} to arg-2
+        set {_amount} to arg-3
+
+        if {ccase::%{_case}%} is not set:
+            send "&6&lCCase ▶ &fКейс &6%{_case}% &cне существует."
+            stop
+
+        set {_uuid} to uuid of {_target}
+        add {_amount} to {ccase::keys::%{_uuid}%::%{_case}%}
+        send "&6&lCCase ▶ &fВы выдали &6%{_amount}% &aключей &fигроку &6%arg-1% &fдля кейса &6%{_case}%."
+        send "&6&lCCase ▶ &fВам выдали &6%{_amount}% &aключей &fдля кейса &6%{_case}%." to {_target}
+
+command /ccmykeys <text>:
+    trigger:
+        set {_uuid} to uuid of player
+        set {_case} to arg-1
+        set {_keys} to {ccase::keys::%{_uuid}%::%{_case}%}
+        if {_keys} is not set:
+            set {_keys} to 0
+        send "&6&lCCase ▶ &fУ тебя &6%{_keys}% &fключей для кейса &6%{_case}%."
